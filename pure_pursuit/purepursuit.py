@@ -19,7 +19,7 @@ class PurePursuitNode(Node):
                              WaypointArray, 'local_baselink_waypoints', 
                              self.wp_subscriber_callback, 1)
         self.wp_subscriber # prevent 'unused variable' warning
-        self.pp_publisher = self.create_publisher(Twist, '/carla/ego_vehicle/twist', 1)
+        self.pp_publisher = self.create_publisher(Twist, '/twist_cmd', 1)
         self.timer_period = 0.01
         self.spinner = self.create_timer(self.timer_period, self.publisher_callback)
         
