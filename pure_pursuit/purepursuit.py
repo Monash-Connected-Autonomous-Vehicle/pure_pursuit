@@ -3,7 +3,7 @@
 import numpy as np
 import math
 import rclpy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import TwistStamped
 from rclpy.node import Node
 from mcav_interfaces.msg import WaypointArray, Waypoint
 
@@ -17,7 +17,7 @@ class PurePursuitNode(Node):
                              WaypointArray, 'local_baselink_waypoints', 
                              self.wp_subscriber_callback, 1)
         self.wp_subscriber # prevent 'unused variable' warning
-        self.pp_publisher = self.create_publisher(Twist, '/twist_cmd', 1)
+        self.pp_publisher = self.create_publisher(TwistStamped, '/twist_cmd', 1)
         self.timer_period = 0.01
         self.spinner = self.create_timer(self.timer_period, self.publisher_callback)
         
@@ -35,13 +35,12 @@ class PurePursuitNode(Node):
     
     def publisher_callback(self):   
         if self.waypoints: 
-            twist_msg = Twist()
+            twist_msg = TwistStamped()
             v_linear, v_angular = self.purepursuit()
-            twist_msg.linear.x = v_linear
-            twist_msg.angular.z = v_angular
+            twist_msg.twist.linear.x = v_linear
+            twist_msg.twist.angular.z = v_angular
             self.pp_publisher.publish(twist_msg)
-            print("Linear vel: ", twist_msg.linear.x ,", Angular vel: ", twist_msg.angular.z)
-#            print("published twist message")
+            #self.get_logger().info(f"Linear vel: {twist_msg.twist.linear.x} , Angular vel: {twist_msg.twist.angular.z}")
 
     
     # Main pure pursuit callback function
