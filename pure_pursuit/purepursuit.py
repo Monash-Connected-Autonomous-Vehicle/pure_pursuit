@@ -3,7 +3,7 @@
 import numpy as np
 import math
 import rclpy
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, PointStamped
 from rclpy.node import Node
 from mcav_interfaces.msg import WaypointArray, Waypoint
 
@@ -18,12 +18,15 @@ class PurePursuitNode(Node):
                              self.wp_subscriber_callback, 1)
         self.wp_subscriber # prevent 'unused variable' warning
         self.pp_publisher = self.create_publisher(TwistStamped, '/twist_cmd', 1)
+        self.lookahead_publisher = self.create_publisher(PointStamped, 'lookahead', 1)
         self.timer_period = 0.01
-        self.spinner = self.create_timer(self.timer_period, self.publisher_callback)
+        self.spinner = self.create_timer(self.timer_period, self.spin)
         
         self.waypoints = []
         self.Lfc = None  # [m] default look-ahead distance
-    
+
+        self.get_logger().info("Pure pursuit path tracking started")
+
     
     def wp_subscriber_callback(self, wp_msg):
         self.waypoints = wp_msg.waypoints
@@ -33,24 +36,38 @@ class PurePursuitNode(Node):
         # self.Lfc = 11.028*v - 63.5  # Nissan Micra
  
     
-    def publisher_callback(self):   
+    def spin(self):   
         if self.waypoints: 
             twist_msg = TwistStamped()
-            v_linear, v_angular = self.purepursuit()
+            tx, ty, v_linear, v_angular = self.purepursuit()
+
+            # Publish twist
             twist_msg.twist.linear.x = v_linear
             twist_msg.twist.angular.z = v_angular
             self.pp_publisher.publish(twist_msg)
-            #self.get_logger().info(f"Linear vel: {twist_msg.twist.linear.x} , Angular vel: {twist_msg.twist.angular.z}")
+
+            # Publish lookahead point (for visualisation)
+            lookahead_point = PointStamped()
+            lookahead_point.point.x = tx
+            lookahead_point.point.y = ty
+            lookahead_point.header.stamp = self.get_clock().now().to_msg()
+            vehicle_frame_id = "base_link"
+            lookahead_point.header.frame_id = vehicle_frame_id
+            self.lookahead_publisher.publish(lookahead_point)
+
+            # self.get_logger().info(f"Linear vel: {twist_msg.twist.linear.x} , Angular vel: {twist_msg.twist.angular.z}")
+        else:
+            self.get_logger().info("Waiting for waypoints")
 
     
-    # Main pure pursuit callback function
+    # Main pure pursuit function
     def purepursuit(self):
         tx, ty = self.target_searcher(self.Lfc) # finds local coordinate of target point
         gamma = self.steer_control(tx, ty, self.Lfc) # finds curvature of lookahead arc
         
         v_linear = self.waypoints[0].velocity.linear.x
         v_angular = v_linear*gamma
-        return v_linear, v_angular
+        return tx, ty, v_linear, v_angular
 
 
     # Searches for target point relating to lookahead distance
@@ -120,5 +137,4 @@ def main(args = None):
 
 
 if __name__ == '__main__':
-    print("Pure pursuit path tracking simulation start")
     main()
